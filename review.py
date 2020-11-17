@@ -1,11 +1,11 @@
-from baseline_cnn_0_2_0 import *
+from baseline_cnn_0_3_0 import *
 from torchvision import models
-from aitracks_cnn_0_2_0 import const_reset_inds
+from aitracks_cnn_0_3_0 import const_reset_inds
 
 
 import matplotlib.pyplot as plt
 
-model_path = 'AI_Tracks_v0.2.0'
+model_path = 'AI_Tracks_v0.3.0'
 random_seed = 42
 
 img_means = (0.5455, 0.5684, 0.5804)
@@ -65,20 +65,29 @@ with torch.no_grad():
     y = []
     for minibatch_count, row in df.iterrows():
 
-        image = transform(Image.open(row['imgpath']))[None, :, :, :]
-        target = torch.FloatTensor(((row[['lat', 'lon']] - out_means) / out_stds).to_list())[None, :]
-        bb_coords = torch.FloatTensor(row[['xtl', 'ytl', 'xbr', 'ybr']].to_list())[None, :]
-        image, bb_coords, target = image.to(computing_device), \
-                                   bb_coords.to(computing_device), \
-                                   target.to(computing_device)
+        images = []
+        targets = []
+        bb_coords = []
 
-        if minibatch_count in const_reset_inds:
-            output = net(image, bb_coords=bb_coords, prev_out=None)
+        for i in range(len(df)):
+            row = df.iloc[i]
+            images.append(transform(Image.open(row['imgpath'])))
+            targets.append(torch.FloatTensor(((row[['lat', 'lon']] - out_means) / out_stds).to_list()))
+            bb_coords.append(torch.FloatTensor(row[['xtl', 'ytl', 'xbr', 'ybr']].to_list()))
 
-        else:
-            output = Variable(output.data)
-            output = output.to(computing_device)
-            output = net(image, bb_coords=None, prev_out=output)
+        images = torch.stack(images)
+        targets = torch.stack(targets)
+        bb_coords = torch.stack(bb_coords)
+
+        h = Variable(torch.zeros(2, 1, 200))
+        h = h.to(computing_device)
+
+        images, bb_coords, targets = images.to(computing_device), \
+                                     bb_coords.to(computing_device), \
+                                     targets.to(computing_device)
+
+        # Put the minibatch data in CUDA Tensors and run on the GPU if supported
+        output, h = net(images, bb_coords=bb_coords, prev_out=h)
 
         x.append(output[0][0].item() * out_stds[0] + out_means[0])
         y.append(output[0][1].item() * out_stds[1] + out_means[1])
@@ -86,5 +95,5 @@ with torch.no_grad():
 
     plt.plot(x, y,  color='r')
 
-plt.savefig('0_2_0_output/11_15_20')
+plt.savefig('0_3_0_output/11_15_20')
 plt.clf()

@@ -1,4 +1,4 @@
-from baseline_cnn_0_2_0 import *
+from baseline_cnn_0_3_0 import *
 
 
 def weights_init(m):
@@ -10,8 +10,8 @@ def weights_init(m):
         nn.init.constant_(m.bias.data, 0)
 
 
-load_model = True
-model_path = 'AI_Tracks_v0.2.0'
+load_model = False
+model_path = 'AI_Tracks_v0.3.0'
 validation_split = .2
 random_seed = 42
 batch_size = 64
@@ -104,7 +104,6 @@ val_N = 20
 
 
 def train_network():
-
     num_resets = 3600
 
     for epoch in range(100):
@@ -118,42 +117,49 @@ def train_network():
         reset_inds = np.concatenate((const_reset_inds, additional_inds))
         reset_inds.sort()
 
+        reset_inds = zip(reset_inds[:-1], reset_inds[1:])
+
         # Get the next minibatch of images, labels for training
-        for minibatch_count, row in train_df.iterrows():
+        for minibatch_count, (start_ind, end_ind) in enumerate(reset_inds):
 
             # Zero out the stored gradient (buffer) from the previous iteration
             optimizer.zero_grad()
 
-            image = transform(Image.open(row['imgpath']))[None, :, :, :]
-            target = torch.FloatTensor(((row[['lat', 'lon']] - out_means) / out_stds).to_list())[None, :]
-            bb_coords = torch.FloatTensor(row[['xtl', 'ytl', 'xbr', 'ybr']].to_list())[None, :]
-            image, bb_coords, target = image.to(computing_device), \
-                                       bb_coords.to(computing_device), \
-                                       target.to(computing_device)
+            images = []
+            targets = []
+            bb_coords = []
+
+            for i in range(start_ind, end_ind):
+                row = df.iloc[i]
+                images.append(transform(Image.open(row['imgpath'])))
+                targets.append(torch.FloatTensor(((row[['lat', 'lon']] - out_means) / out_stds).to_list()))
+                bb_coords.append(torch.FloatTensor(row[['xtl', 'ytl', 'xbr', 'ybr']].to_list()))
+
+            images = torch.stack(images)
+            targets = torch.stack(targets)
+            bb_coords = torch.stack(bb_coords)
+
+            h = Variable(torch.zeros(2, 1, 200))
+            h = h.to(computing_device)
+
+            images, bb_coords, targets = images.to(computing_device), \
+                                         bb_coords.to(computing_device), \
+                                         targets.to(computing_device)
 
             # Put the minibatch data in CUDA Tensors and run on the GPU if supported
-            if minibatch_count in reset_inds:
-                output = net(image, bb_coords=bb_coords, prev_out=None)
+            output, h = net(images, bb_coords=bb_coords, prev_out=h)
 
-            else:
-                output = Variable(output.data)
-                output = output.to(computing_device)
-                output = net(image, bb_coords=None, prev_out=output)
-
-            loss = criterion(output, target)
+            loss = criterion(output, targets)
             # Automagically compute the gradients and backpropagate the loss through the network
 
-            if minibatch_count + 1 in reset_inds:
-                loss.backward()
-            else:
-                loss.backward(retain_graph=True)
+            loss.backward()
 
             # Update the weights
             optimizer.step()
             # Add this iteration's loss to the total_loss
             N_loss = N_loss + loss.item()
 
-            #print("mini_batch", minibatch_count, loss)
+            # print("mini_batch", minibatch_count, loss)
 
             if minibatch_count % N == N - 1:
                 # Print the loss averaged over the last N mini-batches
@@ -165,24 +171,37 @@ def train_network():
         print("Finished", epoch + 1, "epochs of training")
 
         with torch.no_grad():
-            for minibatch_count, row in val_df.iterrows():
+            for minibatch_count, (start_ind, end_ind) in enumerate(reset_inds):
 
-                image = transform(Image.open(row['imgpath']))[None, :, :, :]
-                target = torch.FloatTensor(((row[['lat', 'lon']] - out_means) / out_stds).to_list())[None, :]
-                bb_coords = torch.FloatTensor(row[['xtl', 'ytl', 'xbr', 'ybr']].to_list())[None, :]
-                image, bb_coords, target = image.to(computing_device), \
-                                           bb_coords.to(computing_device), \
-                                           target.to(computing_device)
+                # Zero out the stored gradient (buffer) from the previous iteration
+                optimizer.zero_grad()
 
-                if minibatch_count in reset_inds:
-                    output = net(image, bb_coords=bb_coords, prev_out=None)
+                images = []
+                targets = []
+                bb_coords = []
 
-                else:
-                    output = Variable(output.data)
-                    output = output.to(computing_device)
-                    output = net(image, bb_coords=None, prev_out=output)
+                for i in range(start_ind, end_ind):
+                    row = df.iloc[i]
+                    images.append(transform(Image.open(row['imgpath'])))
+                    targets.append(torch.FloatTensor(((row[['lat', 'lon']] - out_means) / out_stds).to_list()))
+                    bb_coords.append(torch.FloatTensor(row[['xtl', 'ytl', 'xbr', 'ybr']].to_list()))
 
-                loss = criterion(output, target)
+                images = torch.stack(images)
+                targets = torch.stack(targets)
+                bb_coords = torch.stack(bb_coords)
+
+                h = Variable(torch.zeros(2, 1, 200))
+                h = h.to(computing_device)
+
+                images, bb_coords, targets = images.to(computing_device), \
+                                             bb_coords.to(computing_device), \
+                                             targets.to(computing_device)
+
+                # Put the minibatch data in CUDA Tensors and run on the GPU if supported
+                output, h = net(images, bb_coords=bb_coords, prev_out=h)
+
+
+                loss = criterion(output, targets)
 
                 N_loss += loss.item()
 
