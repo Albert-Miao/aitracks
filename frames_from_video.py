@@ -31,7 +31,7 @@ def main(argv):
         cv2.imwrite(to_write % (inputfile.strip('.mp4'), count), image)
         success, image = vidcap.read()
         count += 1
-        print(count)
+        print(to_write)
 
 
 if __name__ == '__main__':
