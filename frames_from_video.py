@@ -25,11 +25,11 @@ def main(argv):
     success, image = vidcap.read()
     count = 0
 
-    print(success)
     while success:
         cv2.imwrite("data/frames/%s_%d.jpg" % (inputfile.strip('.mp4'), count), image)
         success, image = vidcap.read()
         count += 1
+        print(count)
 
 
 if __name__ == '__main__':
