@@ -10,7 +10,7 @@ def weights_init(m):
         nn.init.constant_(m.bias.data, 0)
 
 
-load_model = False
+load_model = True
 model_path = 'AI_Tracks_v0.2.0'
 validation_split = .2
 random_seed = 42
