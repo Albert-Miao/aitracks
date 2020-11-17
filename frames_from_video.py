@@ -28,7 +28,7 @@ def main(argv):
 
     while success:
         to_write = os.path.join('data','frames', '%s_%d.jpg')
-        cv2.imwrite(to_write % (inputfile.strip('.mp4'), count), image)
+        cv2.imwrite(to_write % (inputfile.split('/')[-1].strip('.mp4'), count), image)
         success, image = vidcap.read()
         count += 1
         print(to_write % (inputfile.strip('.mp4'), count))
