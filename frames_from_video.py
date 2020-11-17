@@ -24,6 +24,8 @@ def main(argv):
     vidcap = cv2.VideoCapture(inputfile)
     success, image = vidcap.read()
     count = 0
+
+    print(success)
     while success:
         cv2.imwrite("data/frames/%s_%d.jpg" % (inputfile.strip('.mp4'), count), image)
         success, image = vidcap.read()
