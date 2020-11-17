@@ -159,7 +159,7 @@ def train_network():
             # Add this iteration's loss to the total_loss
             N_loss = N_loss + loss.item()
 
-            # print("mini_batch", minibatch_count, loss)
+            print("mini_batch", minibatch_count, loss)
 
             if minibatch_count % N == N - 1:
                 # Print the loss averaged over the last N mini-batches
