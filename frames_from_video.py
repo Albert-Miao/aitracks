@@ -2,6 +2,7 @@ import getopt
 import sys
 
 import cv2
+import os
 
 
 def main(argv):
@@ -26,6 +27,7 @@ def main(argv):
     count = 0
 
     while success:
+        to_write = os.path.join('data','frames', '%s_%d.jpg')
         cv2.imwrite("data/frames/%s_%d.jpg" % (inputfile.strip('.mp4'), count), image)
         success, image = vidcap.read()
         count += 1
